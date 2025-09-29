@@ -1,1 +1,105 @@
+---
+title: "tugas praktikum 6"
+author: "Atha Nabilah Rosyadi"
+date: "2025-09-29"
+output: 
+  html_document:
+    theme: cerulean
+    toc: true
+    toc_float: true
+---
 
+# Analisis Multivariat untuk Beban Layanan Rumah Sakit
+Studi kasus: sebelum vs sesudah reformasi alur layanan rawat inap
+
+Sebuah rumah sakit melakukan perubahan (reformasi) alur layanan rawat inap untuk meningkatkan efisiensi penggunaan tempat tidur. Manajemen ingin menguji apakah terjadi perubahan rataan multivariat setelah intervensi.
+
+Grup A: sebelum reformasi alur
+Grup B: sesudah reformasi alur
+
+Dua variabel bulanan yang dianalisis:
+JPM – Jumlah Pasien masuk (per bulan)
+JHTT – Jumlah Harian Tempat Tidur
+
+Hipotesis (dua vektor rataan, saling bebas, dan ragam sama)
+
+$$
+H_0 : \mu_A = \mu_B
+$$
+$$
+H_1 : \mu_A \neq \mu_B
+$$
+
+# Bangkitkan Data
+```{r}
+library(MASS)
+library(Hotelling)
+
+set.seed(68)
+
+n1 <- 60  
+n2 <- 55  
+
+mu_A <- c(JPM = 820,  JHTT = 6100)
+mu_B <- c(JPM = 880,  JHTT = 5600)
+
+Sigma <- matrix(c(4500, 2000,
+                  2000, 300000),
+                nrow = 2, byrow = TRUE)
+
+A <- mvrnorm(n = n1, mu = mu_A, Sigma = Sigma)
+B <- mvrnorm(n = n2, mu = mu_B, Sigma = Sigma)
+colnames(A) <- colnames(B) <- c("JPM", "JHTT")
+
+colMeans(A); colMeans(B)
+cov(A); cov(B)
+```
+
+# Menghitung Rataan
+```{r}
+xbar1 <- colSums(A) / n1
+xbar2 <- colSums(B) / n2
+mu_hat <- xbar1 - xbar2
+xbar1; xbar2; mu_hat
+```
+
+# Menghitung Matriks Covarians
+```{r}
+center1 <- scale(A, center = xbar1, scale = FALSE)
+A1 <- t(center1) %*% center1 / (n1 - 1)
+
+center2 <- scale(B, center = xbar2, scale = FALSE)
+A2 <- t(center2) %*% center2 / (n2 - 1)
+
+A1; A2
+
+AB <- ((n1-1)*A1 + (n2-1)*A2) / (n1 + n2 - 2)
+AB
+```
+
+# Hitung Uji Statistik T^2
+```{r}
+d <- mu_hat                        
+AB_inv <- solve(AB)
+T2 <- as.numeric((n1 * n2) / (n1 + n2) * t(d) %*% AB_inv %*% d)
+T2
+```
+
+# Transformasi ke F statistik
+```{r}
+p   <- 2                    
+df1 <- p
+df2 <- n1 + n2 - p - 1     
+
+F_stat <- ((n1 + n2 - p - 1) / ((n1 + n2 - 2) * p)) * T2
+p_val  <- 1 - pf(F_stat, df1, df2)
+
+Fkritis <- qf(0.95, df1, df2)
+
+list(T2 = T2, F = F_stat, df1 = df1, df2 = df2, p_value = p_val, Fkritis = Fkritis)
+```
+# Interpretasi
+Berdasarkan hasil perhitungan di atas, didapatkan bahwa Fhitung lebih besar dari Fkritis, dan nilai p-value sangat kecil = 3.959277e-12.
+
+Hal ini menyatakan bahwa Tolak H0 pada taraf signifikansi 5%.
+Artinya secara multivariat terdapat perbedaan signifikan antara grup A dan B dan berdasarkan rata-rata sampel grup B lebih tinggi sehingga alur layanan baru lebih efektif.
