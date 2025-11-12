@@ -1,1 +1,158 @@
+---
+title: "tugas praktikum sesi UAS"
+author: "Atha Nabilah Rosyadi"
+date: "2025-11-12"
+output: 
+  rmdformats::readthedown:
+    toc_depth: 2      
+    number_sections: false
+    self_contained: true
+    highlight: kate
+    thumbnails: false
+---
+
+# ==============================================
+# PERSIAPAN DATASET
+# ==============================================
+
+## Library
+```{r}
+library(readr)
+library(cluster)
+library(factoextra)
+```
+
+## Impor dataset
+```{r}
+data <- read_csv("E:/Atha's Documents/IPB/smt 5/automobile/Automobile_data.csv")
+```
+
+## Lihat struktur data
+```{r}
+str(data)
+head(data)
+```
+
+## Pilih variabel numerik yang relevan untuk clustering
+```{r}
+car_data <- data[, c("horsepower", "engine-size", "curb-weight", "price")]
+```
+
+## Ubah jadi numerik
+```{r}
+car_data <- as.data.frame(sapply(car_data, as.numeric))
+```
+
+## Cek missing values
+```{r}
+colSums(is.na(car_data))
+```
+
+## Hapus baris yang ada NA
+```{r}
+car_data <- na.omit(car_data)
+```
+
+## Standarisasi data
+```{r}
+car_scaled <- scale(car_data)
+```
+
+## Lihat ringkasan data terstandarisasi
+```{r}
+summary(car_scaled)
+```
+
+# ==============================================
+# HIERARCHICAL CLUSTERING
+# ==============================================
+
+## Hitung jarak antar mobil (Euclidean)
+```{r}
+dist_car <- dist(car_scaled, method = "euclidean")
+```
+
+## Buat model hierarchical clustering dengan metode Ward
+```{r}
+hc_car <- hclust(dist_car, method = "ward.D2")
+```
+
+## Plot dendrogram
+```{r}
+plot(hc_car, main = "Dendrogram - Hierarchical Clustering (Car Dataset)",
+     xlab = "Cars", ylab = "Distance", cex = 0.6)
+```
+     
+## Tentukan jumlah cluster
+```{r}
+clusters_hc <- cutree(hc_car, k = 3)
+```
+
+## Tambahkan hasil cluster ke data asli
+```{r}
+hasil_hc <- data.frame(car_data, Cluster = clusters_hc)
+head(hasil_hc)
+table(hasil_hc$Cluster)
+```
+
+## Visualisasi hasil cluster
+```{r}
+fviz_cluster(list(data = car_scaled, cluster = clusters_hc),
+             main = "Visualisasi Hierarchical Clustering (3 Cluster)")
+```
+             
+
+# ==============================================
+# K-MEANS CLUSTERING
+# ==============================================
+
+## Konsistensi
+```{r}
+set.seed(123) 
+```
+
+## K-Means dengan 3 cluster
+```{r}
+km_car <- kmeans(car_scaled, centers = 3, nstart = 25)
+km_car
+table(km_car$cluster)
+```
+
+## Tambahkan hasil cluster ke data
+```{r}
+hasil_kmeans <- data.frame(car_data, Cluster = km_car$cluster)
+head(hasil_kmeans)
+```
+
+## Visualisasi cluster
+```{r}
+fviz_cluster(km_car, data = car_scaled,
+             ellipse.type = "norm",
+             geom = "point",
+             main = "K-Means Clustering (Car Dataset)")
+```
+             
+
+# ==============================================
+# K-MEDOIDS (PAM) CLUSTERING
+# ==============================================
+
+## PAM (Partitioning Around Medoids)
+```{r}
+pam_car <- pam(car_scaled, k = 3)
+pam_car
+```
+
+## Tambahkan hasil cluster ke data
+```{r}
+hasil_pam <- data.frame(car_data, Cluster = pam_car$clustering)
+head(hasil_pam)
+table(pam_car$clustering)
+```
+
+## Visualisasi hasil cluster
+```{r}
+fviz_cluster(pam_car, geom = "point",
+             main = "K-Medoids Clustering (Car Dataset)")
+```
 
