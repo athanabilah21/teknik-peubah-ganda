@@ -156,3 +156,26 @@ fviz_cluster(pam_car, geom = "point",
              main = "K-Medoids Clustering (Car Dataset)")
 ```
 
+# ==============================================
+# PENJELASAN HASIL
+# ==============================================
+
+
+
+Berdasarkan jarak (distance) pada dendrogram, terlihat loncatan besar antara kelompok pada jarak sekitar 20–25, yang menunjukkan bahwa pemisahan paling alami terjadi pada 3 cluster. Setiap cluster mengelompokkan mobil berdasarkan kemiripan fitur numerik, yaitu horsepower, engine-size, curb-weight, dan price.
+
+
+Makna dari Tiap Cluster: 
+
+[Cluster 1] mobil dengan kapasitas mesin kecil, horsepower rendah, dan harga relatif murah (mobil ekonomi).
+
+[Cluster 2] mobil dengan spesifikasi menengah, engine-size dan horsepower sedang, serta harga menengah (mobil keluarga/mid-range).
+
+[Cluster 3] mobil dengan spesifikasi tinggi, bobot besar (curb-weight tinggi), dan harga mahal (mobil premium atau sport).
+
+
+Kesimpulan:
+
+Clustering berhasil mengelompokkan mobil berdasarkan karakteristik performa dan harga.
+Visualisasi dendrogram menunjukkan bahwa semakin besar jarak antar cluster, semakin berbeda pula spesifikasi kendaraan dalam kelompok tersebut. 
+Hasil ini bisa digunakan untuk analisis segmentasi pasar otomotif, misalnya menentukan kategori mobil berdasarkan daya beli konsumen atau strategi pemasaran yang sesuai.
