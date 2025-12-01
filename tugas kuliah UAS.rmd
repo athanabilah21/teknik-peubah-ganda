@@ -1,1 +1,349 @@
+---
+title: "tugas kuliah UAS"
+author: "Atha Nabilah Rosyadi"
+date: "2025-11-27"
+output: 
+  rmdformats::readthedown:
+    toc_depth: 2      
+    number_sections: false
+    self_contained: true
+    highlight: kate
+    thumbnails: false
+---
+# Data
+## Impor Dataset
+```{r}
+library(readr)
+df <- read.csv("E:/Atha's Documents/IPB/smt 5/Daging Sapi Murni - Sheet1.csv",
+               header = TRUE,
+               stringsAsFactors = FALSE)
+head(df)
+str(df)
+```
 
+## Cek Missing Value
+```{r}
+colSums(is.na(df))
+```
+Terdapat missing value pada NamaProv sebanyak 230 kolom dan Harga sebanyak 1704 kolom.
+
+## Atasi Missing Value
+### NamaProv
+Setelah dilihat, provinsi yang NA merupakan Provinsi Kalimantan Utara didapat dari Kabupaten Kota yang tertera pada data, sehingga kolom NA pada NamaProv dengan KodeBPS 65 akan diisi dengan Provinsi Kalimantan Utara.
+```{r}
+library(dplyr)
+df$NamaProv[df$KodeProv == 65] <- "Kalimantan Utara"
+
+# Cek lagi NA provinsi
+sum(is.na(df$NamaProv))
+```
+Missing value nama provinsi sudah tertangani.
+
+### Harga
+Missing value harga akan diisi dengan rata-rata harga tiap provinsi.
+```{r}
+df <- df %>%
+  group_by(KodeProv, NamaProv) %>%
+  mutate(
+    mean_harga_prov = mean(Harga, na.rm = TRUE),
+    Harga_fix = ifelse(is.na(Harga), mean_harga_prov, Harga)
+  ) %>%
+  ungroup()
+
+# cek lagi NA harga
+sum(is.na(df$Harga_fix))
+```
+Missing value harga sudah tertangani.
+
+## Dataset Rata-Rata Harga
+```{r}
+df_prov <- df %>%
+  group_by(KodeProv, NamaProv) %>%
+  summarise(
+    Harga_rata_prov = mean(Harga_fix, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+head(df_prov)
+```
+
+# Menentukan K Optimal
+```{r}
+data_km <- df_prov[, "Harga_rata_prov", drop = FALSE]
+```
+
+## Elbow Method
+Elbow Method digunakan untuk mencari titik penurunan WSS tidak lagi signifikan, sehingga membentuk siku.
+Metode ini sering dipakai karena visual yang mudah dilihat dan cocok untuk data sederhana.
+```{r}
+set.seed(123)
+
+max_k <- 10
+wss <- numeric(max_k)
+
+for (k in 1:max_k) {
+  km_model <- kmeans(data_km, centers = k, nstart = 25)
+  wss[k] <- km_model$tot.withinss
+}
+
+plot(1:max_k, wss,
+     type = "b",
+     xlab = "Jumlah Cluster (K)",
+     ylab = "Within-Cluster Sum of Squares (WSS)",
+     main = "Elbow Method untuk Menentukan K Optimal")
+```
+Berdasarkan grafik yang diperoleh jumlah cluster optimal adalah K = 3, ditandai dengan perubahan nilai WSS yang signifikan hingga K = 3 dan penurunan yang relatif kecil setelahnya.
+
+
+## Silhoutte Score
+Metode ini merupakan salah satu metode terbaik untuk menentukan K optimal karena keakuratannya dengan konsep mengukur kejelasan cluster dari rentang nilai -1 hingga 1. Semakin besar nilai maka clustering akan semakin bagus. Selanjutnya akan dilakukan perhitungan silhoutte dengan rentang k = 2 sampai 10.
+```{r}
+library(cluster)
+library(factoextra)
+
+silhouette_scores <- numeric(max_k)
+
+for (k in 2:max_k) {
+  km_model <- kmeans(data_km, centers = k, nstart = 25)
+  ss <- silhouette(km_model$cluster, dist(data_km))
+  silhouette_scores[k] <- mean(ss[, 3])   # rata-rata nilai silhouette
+}
+
+# Plot silhouette score
+plot(2:max_k, silhouette_scores[2:max_k],
+     type = "b",
+     xlab = "Jumlah Cluster (K)",
+     ylab = "Silhouette Score",
+     main = "Silhouette Method untuk Menentukan K Optimal")
+
+# tampilkan nilai silhouette secara lengkap
+data.frame(
+  K = 2:max_k,
+  Silhouette = silhouette_scores[2:max_k]
+)
+```
+Didapatkan hasil nilai tertinggi yaitu 0.6854617 ada pada K = 3 yang menjadikannya K optimal.
+
+# K-Means
+Metode K-Means dipilih karena sesuai dengan karakteristik data yang berupa nilai numerik kontinu. Pendekatan ini efektif untuk mengelompokkan provinsi berdasarkan kemiripan harga, sehingga memudahkan identifikasi pola harga antar wilayah. Selain menghasilkan struktur klaster yang sederhana dan mudah diinterpretasikan, K-Means juga merupakan salah satu metode klaster non-hierarki yang umum direkomendasikan dalam analisis multivariat. Pada penelitian ini, variabel yang dianalisis berupa rata-rata harga daging sapi murni per provinsi, sehingga penggunaan metode berbasis jarak seperti K-Means menjadi pilihan yang tepat.
+
+## K-Means dengan K = 3
+```{r}
+data_km <- df_prov[, "Harga_rata_prov", drop = FALSE]
+```
+
+```{r}
+set.seed(123)
+km3 <- kmeans(data_km, centers = 3, nstart = 25)
+km3
+```
+
+```{r}
+df_prov$cluster_raw <- km3$cluster
+```
+
+```{r}
+centers <- km3$centers
+centers
+```
+Terdapat 34 provinsi dengan cluster 1 berisi 10 provinsi, cluster 2 berisi 18 provinsi, dan cluster 3 berisi 6 provinsi. Nilai between-cluster sum of squares sebesar 90.5% menunjukkan bahwa model clustering mampu menjelaskan sebagian besar variasi harga antar provinsi, sehingga pengelompokan dapat dikatakan sangat baik.
+
+## Menyusun Cluster
+```{r}
+# Urut dari mahal ke murah
+ord <- order(centers[, "Harga_rata_prov"], decreasing = TRUE)
+ord
+```
+## Mapping Cluster
+```{r}
+cluster_baru <- rep(NA, nrow(df_prov))
+
+cluster_baru[df_prov$cluster_raw == ord[1]] <- 1   # MAHAL
+cluster_baru[df_prov$cluster_raw == ord[2]] <- 2   # SEDANG
+cluster_baru[df_prov$cluster_raw == ord[3]] <- 3   # MURAH
+
+df_prov$cluster <- factor(cluster_baru,
+                          levels = c(1,2,3),
+                          labels = c("Mahal", "Sedang", "Murah"))
+head(df_prov)
+```
+
+## Ringkasan
+```{r}
+library(dplyr)
+
+ringkasan_cluster <- df_prov %>%
+  group_by(cluster) %>%
+  summarise(
+    n_prov = n(),
+    mean_harga = mean(Harga_rata_prov),
+    min_harga  = min(Harga_rata_prov),
+    max_harga  = max(Harga_rata_prov),
+    .groups = "drop"
+  )
+
+ringkasan_cluster
+```
+Hasil pengelompokan menggunakan K-Means dengan tiga cluster menunjukkan bahwa provinsi di Indonesia dapat dikelompokkan menjadi tiga kategori berdasarkan rata-rata harga daging sapi murni, yaitu Mahal, Sedang, dan Murah.
+
+1. Cluster “Mahal” terdiri dari 10 provinsi, dengan rata-rata harga sebesar 152.192 rupiah. Harga pada kelompok ini berada pada rentang sekitar 144.189 – 158.547 rupiah, sehingga dapat dikatakan sebagai kelompok dengan tingkat harga tertinggi. Provinsi di cluster ini cenderung memiliki kondisi pasar atau pola distribusi yang menyebabkan harga daging sapi relatif lebih mahal dibanding wilayah lain.
+
+2. Cluster “Sedang” merupakan kelompok dengan jumlah provinsi terbanyak, yaitu 18 provinsi, dan memiliki rata-rata harga sekitar 134.769 rupiah. Rentang harganya berada pada 127.798 – 142.485 rupiah. Kelompok ini mencerminkan wilayah dengan harga daging yang berada pada tingkat menengah dan relatif stabil.
+
+3. Cluster “Murah” terdiri dari 6 provinsi, dengan rata-rata harga terendah yaitu 119.548 rupiah, serta rentang harga 114.401 – 125.631 rupiah. Provinsi dalam cluster ini berada pada segmen harga yang lebih rendah, menunjukkan adanya kondisi pasokan atau faktor ekonomi lokal yang membuat harga daging lebih terjangkau dibandingkan wilayah lain.
+
+Secara keseluruhan, hasil clustering ini menunjukkan bahwa terdapat perbedaan yang cukup jelas antar provinsi dalam hal harga daging sapi murni, dan model K-Means mampu memisahkan provinsi-provinsi tersebut menjadi kelompok harga yang terstruktur dengan baik.
+
+# Boxplot
+```{r}
+library(ggplot2)
+
+ggplot(df_prov, aes(x = cluster, y = Harga_rata_prov, fill = cluster)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("Mahal" = "red", 
+                               "Sedang" = "gold", 
+                               "Murah" = "darkgreen")) +
+  labs(
+    title = "Sebaran Harga Daging Sapi Murni per Cluster",
+    x = "Cluster",
+    y = "Harga Rata-rata (Rp)"
+  ) +
+  theme_minimal()
+```
+1. Cluster Mahal (Merah)
+
+Cluster ini memiliki median harga tertinggi, yaitu di kisaran 155.000-an.
+Rentang antar kuartil (IQR) relatif lebih lebar dibanding cluster lain, yang menunjukkan bahwa harga di provinsi-provinsi dalam kelompok ini tidak hanya tinggi, tetapi juga lebih bervariasi. Hal ini mengindikasikan bahwa wilayah-wilayah ini memiliki kondisi pasar dan distribusi yang berbeda-beda, meskipun sama-sama masuk kategori mahal.
+
+
+2. Cluster Sedang (Kuning)
+
+Cluster sedang memiliki median harga di kisaran 134.000–135.000 rupiah, dengan IQR yang lebih sempit dibanding cluster mahal. Sebaran data cluster ini terlihat cukup stabil, meskipun ada beberapa titik outlier (harga lebih rendah daripada mayoritas provinsi).
+
+
+3. Cluster Murah (Hijau)
+
+Cluster murah menunjukkan median harga yang paling rendah, yaitu sekitar 118.000–120.000 rupiah. Rentang harganya paling sempit di antara semua cluster, artinya provinsi dalam kelompok ini memiliki tingkat harga yang lebih seragam.
+
+# Barplot
+```{r}
+library(ggplot2)
+
+ggplot(df_prov, aes(x = reorder(NamaProv, Harga_rata_prov),
+                    y = Harga_rata_prov,
+                    fill = cluster)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_manual(values = c("Mahal" = "red",
+                               "Sedang" = "gold",
+                               "Murah" = "darkgreen")) +
+  labs(
+    title = "Harga Rata-rata Daging Sapi Murni per Provinsi",
+    x = "Provinsi",
+    y = "Harga Rata-rata (Rp)",
+    fill = "Cluster"
+  ) +
+  theme_minimal(base_size = 14)
+```
+Barplot menunjukkan urutan harga rata-rata daging sapi murni dari provinsi dengan harga tertinggi hingga terendah di Indonesia. Provinsi termahal adalah Kalimantan Utara dan termurah adalah Nusa Tenggara Timur.
+
+# Choropleth Map
+```{r}
+library(geodata)
+library(sf)
+library(dplyr)
+```
+
+## Download Provinsi
+```{r}
+indo <- gadm(country = "IDN", level = 1, path = ".")
+indo_sf <- st_as_sf(indo)
+names(indo)
+```
+
+## Gabungkan
+```{r}
+indo_cluster <- indo_sf %>%
+  left_join(df_prov, by = c("NAME_1" = "NamaProv"))
+```
+
+## Cek Hasil
+```{r}
+sum(is.na(indo_cluster$cluster))
+```
+Masih ada 3 provinsi yang tidak match
+
+## Tangani
+```{r}
+indo_cluster %>%
+  dplyr::filter(is.na(cluster)) %>%
+  dplyr::select(NAME_1, everything())
+```
+Provinsi yang tidak match namanya adalah Bangka Belitung, Jakarta Raya, dan Yogyakarta sehingga harus disesuaikan.
+
+```{r}
+df_prov$NamaProv[df_prov$KodeProv == 19] <- "Bangka Belitung"
+df_prov$NamaProv[df_prov$KodeProv == 31] <- "Jakarta Raya"
+df_prov$NamaProv[df_prov$KodeProv == 34] <- "Yogyakarta"
+```
+
+```{r}
+unique(df_prov$NamaProv)
+```
+```{r}
+indo_cluster <- indo_sf %>%
+  dplyr::left_join(df_prov, by = c("NAME_1" = "NamaProv"))
+
+sum(is.na(indo_cluster$cluster))
+```
+Nama provinsi sudah match.
+
+## Peta
+```{r}
+library(tmap)
+tmap_mode("plot")
+
+tm_shape(indo_cluster) +
+  tm_polygons("cluster",
+              palette = c("red", "gold", "darkgreen"),
+              title = "Cluster Harga") +
+  tm_layout(title = "Peta Cluster Harga Daging Sapi Murni per Provinsi")
+```
+1. Cluster Mahal (Merah)
+
+Cluster ini mencakup beberapa provinsi di:
+Kalimantan (hampir seluruhnya),
+Sulawesi bagian utara,
+Papua dan Papua Barat,
+Beberapa provinsi di Sumatera bagian utara.
+
+Pola ini menunjukkan bahwa wilayah yang jauh dari pusat distribusi daging (Jawa) atau memiliki biaya logistik tinggi cenderung memiliki harga yang lebih mahal. Selain itu, beberapa provinsi tersebut bukan sentra produksi sapi, sehingga pasokan harus didatangkan dari luar, mendorong harga menjadi lebih tinggi.
+
+
+2. Cluster Sedang (Kuning)
+
+Cluster ini mencakup beberapa provinsi di:
+Sebagian besar Sumatera,
+Jawa bagian barat dan tengah,
+Sebagian Kalimantan bagian selatan,
+Maluku dan sebagian Papua.
+
+Wilayah-wilayah ini memiliki harga yang berada pada tingkat menengah, yang didorong oleh akses distribusi yang relatif lebih baik, rantai pasok yang lebih stabil, dan kedekatan dengan jalur logistik utama.
+
+
+3. Cluster Murah (Hijau)
+
+Cluster ini mencakup beberapa provinsi di:
+Nusa Tenggara Barat,
+Nusa Tenggara Timur,
+Sulawesi Selatan (sentra sapi potong),
+Beberapa provinsi timur lain.
+
+Provinsi dalam kelompok ini dikenal sebagai sentra produksi sapi potong, terutama NTB dan Sulawesi Selatan. Tingginya produksi lokal membuat harga di tingkat konsumen lebih rendah dibanding provinsi lain.
+
+
+Secara keseluruhan, peta cluster menunjukkan bahwa variasi harga daging sapi antar provinsi dipengaruhi oleh pola distribusi geografis, lokasi sentra produksi, dan efisiensi rantai pasok. Wilayah produsen cenderung lebih murah, sedangkan wilayah yang bergantung pada distribusi antar-pulau cenderung lebih mahal.
+
+
+# Kesimpulan Akhir
+Berdasarkan hasil analisis clustering menggunakan metode K-Means dengan K = 3, terlihat bahwa provinsi-provinsi di Indonesia dapat dikelompokkan secara jelas ke dalam tiga kategori harga daging sapi murni, yaitu mahal, sedang, dan murah. Pengelompokan ini mampu menjelaskan 90,5% variasi data sehingga dianggap sangat baik, serta didukung oleh hasil Elbow dan Silhouette yang sama-sama menunjukkan bahwa K = 3 merupakan jumlah cluster optimal. Cluster mahal umumnya berada di wilayah yang jauh dari sentra produksi dan memiliki biaya distribusi lebih tinggi, sementara cluster sedang berada pada wilayah dengan kondisi pasar yang relatif stabil, dan cluster murah didominasi daerah penghasil sapi dengan pasokan lokal yang melimpah. Visualisasi berupa boxplot, barplot, dan choropleth map juga menegaskan perbedaan karakteristik antar cluster, sehingga analisis ini dapat memberikan gambaran yang komprehensif mengenai variasi spasial harga daging sapi murni di Indonesia.
