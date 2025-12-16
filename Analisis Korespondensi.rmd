@@ -1,1 +1,153 @@
+---
+title: "Analisis Korespondensi"
+author: "Atha Nabilah Rosyadi"
+date: "2025-12-12"
+output: 
+  rmdformats::readthedown:
+    toc_depth: 2      
+    number_sections: false
+    self_contained: true
+    highlight: kate
+    thumbnails: false
+---
+Analisis Korespondensi antara Program Studi dan Tingkat Kepuasan Mahasiswa
 
+# Data Bangkitan
+```{r}
+set.seed(123)
+
+n <- 120
+
+data <- data.frame(
+  prodi = sample(c("Statistika", "Biologi", "Kimia"),
+                 n, replace = TRUE),
+  kepuasan = sample(c("Tidak Puas", "Cukup", "Puas"),
+                    n, replace = TRUE)
+)
+
+head(data)
+```
+Data yang digunakan merupakan tingkat kepuasan mahasiswa dari 3 program studi yaitu Kimia, Biologi, dan Statistika.
+
+# Tabel Kontingensi
+```{r}
+tab <- table(data$prodi, data$kepuasan)
+tab
+```
+Tabel kontingensi menunjukkan distribusi tingkat kepuasan mahasiswa pada masing-masing program studi.
+Secara deskriptif, mahasiswa Biologi relatif lebih banyak berada pada kategori Cukup dan Puas, sedangkan Statistika dan Kimia memiliki jumlah mahasiswa Tidak Puas yang relatif lebih tinggi dibandingkan kategori lainnya. Namun, perbedaan ini masih bersifat deskriptif dan perlu dikonfirmasi melalui uji statistik.
+
+
+# Uji Chi-Square
+```{r}
+chisq.test(tab)
+```
+Karena nilai p-value > 0.05, maka tidak terdapat hubungan yang signifikan antara Program Studi dan Tingkat Kepuasan Mahasiswa. Artinya, secara statistik tingkat kepuasan mahasiswa tidak berbeda secara signifikan antar program studi.
+
+
+# Analisis Korespondensi (CA)
+```{r}
+library(FactoMineR)
+library(factoextra)
+
+ca_res <- CA(tab, graph = FALSE)
+```
+
+```{r}
+# Eigenvalue
+ca_res$eig
+
+# Koordinat baris
+ca_res$row$coord
+
+# Koordinat kolom
+ca_res$col$coord
+```
+Hasil Analisis Korespondensi menunjukkan bahwa:
+Dimensi 1 menjelaskan 97.87% variasi data.
+Dimensi 2 menjelaskan 2.13% variasi data.
+
+Hal ini menunjukkan bahwa pola utama hubungan antara program studi dan tingkat kepuasan hampir seluruhnya dijelaskan oleh Dimensi 1, sehingga interpretasi fokus pada dimensi tersebut sudah cukup representatif. Total keduanya juga menjelaskan 100% variasi sehingga menunjukkan model yang sangat baik.
+
+INTERPRETASI DIMENSI 1
+
+Dimensi 1 merupakan dimensi utama karena menjelaskan 97,87% variasi data, sehingga interpretasi difokuskan pada dimensi ini.
+
+1. Biologi memiliki koordinat positif (0,196) dan berada dekat dengan kategori Puas (0,149).
+→ Menunjukkan bahwa mahasiswa Program Studi Biologi cenderung memiliki tingkat kepuasan “Puas”.
+
+2. Statistika memiliki koordinat negatif (-0,168) dan posisinya paling dekat dengan kategori Tidak Puas (-0,201).
+→ Mengindikasikan bahwa mahasiswa Statistika cenderung berada pada kategori “Tidak Puas”.
+
+3. Kimia berada relatif dekat dengan pusat (−0,065), serta tidak terlalu dekat dengan satu kategori kepuasan tertentu.
+→ Menunjukkan bahwa tingkat kepuasan mahasiswa Kimia relatif seimbang dan tidak dominan pada satu kategori tertentu.
+
+Secara umum, Dimensi 1 memisahkan kategori “Puas” dan “Tidak Puas”, dengan Program Studi Biologi berada di sisi “Puas” dan Statistika di sisi “Tidak Puas”.
+
+
+INTERPRETASI DIMENSI 2
+
+Dimensi 2 hanya menjelaskan 2,13% variasi, sehingga perannya kecil dan bersifat pendukung.
+
+1. Kimia memiliki nilai positif pada Dimensi 2 (0,031), dekat dengan kategori Puas (0,026).
+
+2. Statistika dan Cukup berada pada nilai negatif, menunjukkan kecenderungan yang berlawanan pada dimensi ini.
+
+Namun, karena kontribusi Dimensi 2 sangat kecil, interpretasi utama tetap bertumpu pada Dimensi 1.
+
+
+Berdasarkan posisi relatif pada biplot:
+
+1. Biologi: Puas menunjukkan asosiasi relatif kuat.
+
+2. Statistika: Tidak Puas menunjukkan kecenderungan asosiasi kepuasan rendah.
+
+3. Kimia: berada di sekitar pusat, menandakan tidak ada kecenderungan kepuasan yang dominan.
+
+Hubungan yang ditunjukkan oleh Analisis Korespondensi ini bersifat eksploratif, dan sejalan dengan hasil uji chi-square yang menyatakan bahwa hubungan antara Program Studi dan Tingkat Kepuasan Mahasiswa tidak signifikan secara statistik.
+
+# Biplot
+```{r}
+fviz_ca_biplot(
+  ca_res,
+  repel = TRUE,
+  title = "Biplot Analisis Korespondensi\nProgram Studi vs Kepuasan"
+)
+```
+
+Asosiasi Program Studi dengan Kepuasan Berdasarkan Biplot CA:
+
+Berdasarkan biplot, interpretasi dilakukan dengan melihat kedekatan posisi antar kategori, terutama pada Dimensi 1 yang menjelaskan 97,87% variasi data.
+
+1. Program Studi Biologi berada relatif dekat dengan kategori Puas, yang menunjukkan bahwa mahasiswa Biologi cenderung memiliki tingkat kepuasan yang lebih tinggi dibandingkan program studi lainnya.
+
+2. Program Studi Statistika berada paling dekat dengan kategori Tidak Puas, mengindikasikan adanya kecenderungan mahasiswa Statistika berada pada tingkat kepuasan yang lebih rendah.
+
+3. Program Studi Kimia terletak dekat dengan pusat koordinat dan tidak berdekatan secara kuat dengan kategori kepuasan tertentu, sehingga tingkat kepuasan mahasiswa Kimia cenderung tidak dominan pada satu kategori spesifik.
+
+4. Kategori Cukup berada terpisah dari ketiga program studi, menunjukkan bahwa kategori ini tidak memiliki asosiasi kuat dengan program studi tertentu.
+
+Secara keseluruhan, pola asosiasi yang terlihat pada biplot bersifat eksploratif dan tidak menunjukkan hubungan yang signifikan secara statistik, sejalan dengan hasil uji chi-square yang menghasilkan p-value > 0,05.
+
+
+
+# Ringkasan Hasil
+
+Judul: Analisis Korespondensi antara Program Studi dan Tingkat Kepuasan Mahasiswa.
+
+Data: Tingkat kepuasan mahasiswa dari 3 program studi yaitu Kimia, Biologi, dan Statistika.
+
+Observasi: 120 responden.
+
+Tabel Kontingensi: Mahasiswa Biologi relatif lebih banyak berada pada kategori Cukup dan Puas, sedangkan Statistika dan Kimia memiliki jumlah mahasiswa Tidak Puas yang relatif lebih tinggi dibandingkan kategori lainnya. 
+
+Chi-Square: Tidak terdapat hubungan yang signifikan antara Program Studi dan Tingkat Kepuasan Mahasiswa.
+
+Analisis Korespondensi: Total Dim 1 dan Dim 2 menjelaskan 100% variasi sehingga menunjukkan model yang sangat baik.
+
+Biplot: Biologi-Puas, Statistika-Tidak Puas, Kimia-Tidak Ada yang Dominan. Hubungan tidak signifikan secara statistik.
+
+
+# Kesimpulan
+
+Berdasarkan Analisis Korespondensi antara Program Studi dan Tingkat Kepuasan Mahasiswa, dapat disimpulkan bahwa secara statistik tidak terdapat hubungan yang signifikan antara kedua variabel tersebut. Meskipun secara visual pada biplot terlihat kecenderungan asosiasi tertentu, seperti Program Studi Biologi dengan kategori Puas dan Statistika dengan Tidak Puas, asosiasi tersebut bersifat deskriptif dan eksploratif. Oleh karena itu, perbedaan tingkat kepuasan mahasiswa antar program studi tidak cukup kuat untuk dinyatakan signifikan secara statistik.
